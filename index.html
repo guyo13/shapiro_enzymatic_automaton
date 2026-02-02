@@ -283,6 +283,98 @@
         .bg-q1 {
             background-color: var(--accent-q1);
         }
+
+        /* Transition Molecule Styling */
+        .transition-molecule {
+            display: flex;
+            flex-direction: column;
+            margin-right: 8px;
+            padding: 4px;
+            border: 2px solid #6366f1;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+            position: relative;
+        }
+
+        .transition-molecule::after {
+            content: '⟶';
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: #6366f1;
+        }
+
+        .transition-label {
+            font-size: 10px;
+            text-align: center;
+            color: #4338ca;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        .foki-recognition {
+            background-color: #fee2e2 !important;
+            border: 1px solid #ef4444 !important;
+            color: #b91c1c !important;
+        }
+
+        .spacer-region {
+            background-color: #dcfce7 !important;
+            border: 1px solid #22c55e !important;
+            color: #166534 !important;
+        }
+
+        .binding-complement {
+            background-color: #dbeafe !important;
+            border: 1px solid #3b82f6 !important;
+            color: #1e40af !important;
+        }
+
+        .cut-marker {
+            position: absolute;
+            width: 2px;
+            background: #dc2626;
+            z-index: 20;
+        }
+
+        .cut-marker::before {
+            content: '✂';
+            position: absolute;
+            top: -18px;
+            left: -6px;
+            font-size: 12px;
+            color: #dc2626;
+        }
+
+        .cut-marker-top {
+            height: 28px;
+            top: 18px;
+        }
+
+        .cut-marker-bottom {
+            height: 28px;
+            top: 46px;
+        }
+
+        .phase-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .phase-binding {
+            background-color: #c7d2fe;
+            color: #3730a3;
+        }
+
+        .phase-aftercut {
+            background-color: #fef08a;
+            color: #854d0e;
+        }
     </style>
 </head>
 
@@ -425,6 +517,36 @@
             'q1': 0  // Reading bases 1-4 (indices 0-3)
         };
 
+        // Transition molecules from Figure 5.22 (Shapiro paper)
+        // Structure: [FokI GGATG] - [Spacer 1/3/5 bases] - [Complementary sticky end on bottom overhang]
+        const TRANSITION_MOLECULES = {
+            'q0': {
+                'a': {
+                    'q0': { id: 'T1', top: 'GGATGTAC', bottom: 'CCTACATGCCGA', spacerLen: 3 },
+                    'q1': { id: 'T2', top: 'GGATGACGAC', bottom: 'CCTACTGCTGCCGA', spacerLen: 5 }
+                },
+                'b': {
+                    'q0': { id: 'T3', top: 'GGATGACG', bottom: 'CCTACTGCGTCG', spacerLen: 3 },
+                    'q1': { id: 'T4', top: 'GGATGACGAC', bottom: 'CCTACTGCTGGTCG', spacerLen: 5 }
+                }
+            },
+            'q1': {
+                'a': {
+                    'q0': { id: 'T5', top: 'GGATGA', bottom: 'CCTACTGACC', spacerLen: 1 },
+                    'q1': { id: 'T6', top: 'GGATGACG', bottom: 'CCTACTGCGACC', spacerLen: 3 }
+                },
+                'b': {
+                    'q0': { id: 'T7', top: 'GGATGG', bottom: 'CCTACCGCGT', spacerLen: 1 },
+                    'q1': { id: 'T8', top: 'GGATGACG', bottom: 'CCTACTGCGCGT', spacerLen: 3 }
+                }
+            }
+        };
+
+        // FokI cuts 9 bases after recognition site (5' strand), 13 bases (3' strand)
+        const FOKI_CUT_5 = 9;
+        const FOKI_CUT_3 = 13;
+        const FOKI_SITE = 'GGATG';
+
         // Simulation State
         let simulationSteps = [];
         let currentStepIndex = 0;
@@ -439,7 +561,7 @@
                 'q0': {
                     'a': document.getElementById('trans-q0-a').value,
                     'b': document.getElementById('trans-q0-b').value,
-                    't': 'HALT' // Terminator halts
+                    't': 'HALT'
                 },
                 'q1': {
                     'a': document.getElementById('trans-q1-a').value,
@@ -451,10 +573,6 @@
             // 2. Pre-calculate all simulation steps
             simulationSteps = [];
             let currentState = startState;
-
-            // Initial Condition:
-            // The molecule starts pre-digested according to the Start State's offset rule.
-            // If Start=q0, we start at offset 2 of the first symbol.
             let currentOffset = STATE_OFFSETS[currentState];
 
             // Generate initial full DNA string data structure
@@ -464,66 +582,75 @@
                     char: char,
                     seq: DNA_MAP[char].seq,
                     comp: DNA_MAP[char].comp,
-                    status: 'pending', // pending, active, digested
-                    cutOffset: null
+                    status: 'pending'
                 });
             }
 
-            // Record Step 0 (Initial State)
-            simulationSteps.push({
-                stepNum: 0,
-                state: currentState,
-                symbolIndex: 0,
-                offset: currentOffset,
-                symbols: JSON.parse(JSON.stringify(symbolsData)),
-                action: "Initial State. Molecule ready."
-            });
-
-            // Loop through input
+            // Loop through input symbols
             for (let i = 0; i < inputStr.length; i++) {
                 const char = inputStr[i];
 
                 // Check for termination
                 if (char === 't') {
-                    // Final step visualization (Success)
-                    let finalSyms = JSON.parse(JSON.stringify(simulationSteps[simulationSteps.length - 1].symbols));
-                    finalSyms[i].status = 'active'; // Terminator is active
+                    // Final step - terminator reached
+                    let finalSyms = JSON.parse(JSON.stringify(symbolsData));
+                    finalSyms[i].status = 'active';
                     simulationSteps.push({
                         stepNum: simulationSteps.length,
+                        stepType: 'complete',
                         state: currentState,
                         symbolIndex: i,
                         offset: currentOffset,
                         symbols: finalSyms,
-                        action: "Terminator reached. Computation complete."
+                        action: "Terminator reached. Computation complete!",
+                        transitionMolecule: null
                     });
                     break;
                 }
 
                 const nextState = transitionTable[currentState][char];
                 const nextOffset = STATE_OFFSETS[nextState];
+                const molecule = TRANSITION_MOLECULES[currentState][char][nextState];
 
-                // Create Next Step State
-                let nextSyms = JSON.parse(JSON.stringify(simulationSteps[simulationSteps.length - 1].symbols));
-
-                // Mark current symbol as processed/digested
-                nextSyms[i].status = 'digested';
-
-                // Set up next symbol as active
-                if (i + 1 < inputStr.length) {
-                    nextSyms[i + 1].status = 'pending'; // Will be active in visualization logic
-                }
-
-                let actionText = `Transition: (${currentState}, ${char}) → ${nextState}. Enzyme cuts ${nextOffset === 0 ? 'before' : 'inside'} next symbol.`;
+                // Step A: BINDING - Show transition molecule attached
+                let bindingSyms = JSON.parse(JSON.stringify(symbolsData));
+                bindingSyms[i].status = 'active';
 
                 simulationSteps.push({
                     stepNum: simulationSteps.length,
+                    stepType: 'binding',
+                    state: currentState,
+                    nextState: nextState,
+                    symbolIndex: i,
+                    offset: currentOffset,
+                    nextOffset: nextOffset,
+                    symbols: bindingSyms,
+                    action: `${molecule.id}: (${currentState}, ${char}) → ${nextState}. FokI will cut after 9 bases.`,
+                    transitionMolecule: molecule,
+                    inputChar: char
+                });
+
+                // Step B: AFTER CUT - Show DNA after FokI cleavage
+                let afterCutSyms = JSON.parse(JSON.stringify(symbolsData));
+                afterCutSyms[i].status = 'digested';
+                if (i + 1 < inputStr.length) {
+                    afterCutSyms[i + 1].status = 'active';
+                }
+
+                simulationSteps.push({
+                    stepNum: simulationSteps.length,
+                    stepType: 'afterCut',
                     state: nextState,
                     symbolIndex: i + 1,
                     offset: nextOffset,
-                    symbols: nextSyms,
-                    action: actionText
+                    symbols: afterCutSyms,
+                    action: `Cut complete. Now in state ${nextState}. New sticky end exposed.`,
+                    transitionMolecule: null,
+                    inputChar: inputStr[i + 1] || 't'
                 });
 
+                // Update for next iteration
+                symbolsData = afterCutSyms;
                 currentState = nextState;
                 currentOffset = nextOffset;
             }
@@ -557,27 +684,26 @@
             stateSpan.innerText = data.state;
             stateSpan.className = data.state === 'q0' ? 'state-badge bg-q0' : 'state-badge bg-q1';
 
-            const sym = data.symbolIndex < data.symbols.length ? data.symbols[data.symbolIndex].char : 'End';
+            const sym = data.symbolIndex < data.symbols.length ? data.symbols[data.symbolIndex].char : 't';
             document.getElementById('current-symbol-display').innerText = sym;
             document.getElementById('action-display').innerText = data.action;
 
             // Build DNA Visual
             let html = '<div class="dna-wrapper">';
 
+            // Render Transition Molecule if in binding phase
+            if (data.stepType === 'binding' && data.transitionMolecule) {
+                html += renderTransitionMolecule(data.transitionMolecule, data.symbols, data.symbolIndex, data.offset);
+            }
+
+            // Render input DNA symbols
             data.symbols.forEach((sym, idx) => {
                 const isCurrent = idx === data.symbolIndex;
                 const isDigested = idx < data.symbolIndex;
+                const isBindingPhase = data.stepType === 'binding';
+                const isNextSymbol = isBindingPhase && idx === data.symbolIndex + 1;
 
                 let opacityClass = isDigested ? 'cut-off' : '';
-
-                // Determine highlighting based on state offset
-                // The logic:
-                // If this is the Current symbol, we highlight the "Sticky End" defined by current offset.
-                // Offset 0 (q1): Bases 0-3 (First 4) are sticky.
-                // Offset 2 (q0): Bases 2-5 (Last 4) are sticky.
-
-                let topStrand = sym.seq;
-                let botStrand = sym.comp;
 
                 let topHtml = '';
                 let botHtml = '';
@@ -585,56 +711,79 @@
                 // Render base by base to control styling
                 for (let b = 0; b < 6; b++) {
                     let isSticky = false;
+                    let isCutPosition = false;
+                    let isCleavedTop = false;
+                    let isCleavedBottom = false;
 
                     if (isCurrent) {
-                        // Logic for sticky end highlighting
+                        // Determine sticky end region based on current offset
                         if (data.offset === 0) {
-                            // Sticky end is first 4 bases (0,1,2,3)
                             if (b < 4) isSticky = true;
                         } else if (data.offset === 2) {
-                            // Sticky end is last 4 bases (2,3,4,5)
                             if (b >= 2) isSticky = true;
                         }
                     }
 
-                    const style = isSticky ? 'background-color:#fef08a; border:1px solid #eab308; color:#000;' : '';
+                    // In binding phase, highlight the portion of next symbol that will be CLEAVED OFF
+                    // This is the DNA that gets discarded along with the transition molecule
+                    if (isNextSymbol && data.nextOffset !== undefined) {
+                        if (data.nextOffset === 2) {
+                            // Going to q0: cut at position 2
+                            // Top strand: bases 0-1 get cleaved off
+                            // Bottom strand: ALL bases get cleaved (staggered cut)
+                            if (b < 2) isCleavedTop = true;
+                            isCleavedBottom = true; // All bottom bases cleaved
+                        } else if (data.nextOffset === 0) {
+                            // Going to q1: cut at position 0
+                            // Top strand: no bases cleaved (sticky end starts at 0)
+                            // Bottom strand: bases 0-3 get cleaved (under the overhang)
+                            if (b < 4) isCleavedBottom = true;
+                        }
+                    }
+
+                    // Check if this base should be grayed out (cut off portion)
+                    // In afterCut, binding, or complete phase with offset=2, the first 2 bases were cut off
+                    const isCutOff = isCurrent && (data.stepType === 'afterCut' || data.stepType === 'binding' || data.stepType === 'complete') && data.offset === 2 && b < 2;
+
+                    let topStyle = '';
+                    let botStyle = '';
+
+                    if (isCutOff) {
+                        topStyle = 'opacity:0.3; filter:grayscale(100%);';
+                        botStyle = 'opacity:0.3; filter:grayscale(100%);';
+                    } else if (isSticky) {
+                        topStyle = 'background-color:#fef08a; border:1px solid #eab308; color:#000;';
+                    } else if (isCleavedTop) {
+                        topStyle = 'border:2px solid #dc2626; border-radius:2px;';
+                    }
+
+                    if (isCleavedBottom && !isCutOff) {
+                        botStyle = 'border:2px solid #dc2626; border-radius:2px;';
+                    }
 
                     // Top strand visual
-                    topHtml += `<span style="display:inline-block; width:12px; text-align:center; ${style}">${sym.seq[b]}</span>`;
+                    topHtml += `<span style="display:inline-block; width:12px; text-align:center; ${topStyle}">${sym.seq[b]}</span>`;
 
-                    // Bottom strand visual
-                    // For a 5' overhang sticky end, the complementary strand is missing in the sticky region?
-                    // Actually, in the diagrams, the sticky end is single stranded.
-                    // Let's hide the bottom strand for the sticky part to make it realistic.
+                    // Bottom strand - hide for sticky region (single stranded), gray out if cut off
                     if (isSticky) {
                         botHtml += `<span style="display:inline-block; width:12px; opacity:0.1">&nbsp;</span>`;
+                    } else if (isCutOff) {
+                        botHtml += `<span style="display:inline-block; width:12px; text-align:center; ${botStyle}">${sym.comp[b]}</span>`;
                     } else {
-                        botHtml += `<span style="display:inline-block; width:12px; text-align:center;">${sym.comp[b]}</span>`;
+                        botHtml += `<span style="display:inline-block; width:12px; text-align:center; ${botStyle}">${sym.comp[b]}</span>`;
                     }
                 }
 
-                // Determine if parts of this symbol are physically gone due to offset
-                // If Offset=2, bases 0-1 are technically digested/gone in the previous step?
-                // Actually, if we start at Offset 2, bases 0-1 are effectively removed.
-
-                // Let's refine the "Digested" visual. 
-                // If we are currently reading Offset 2, bases 0-1 should be invisible or very faint.
                 let containerStyle = "";
                 let overlay = "";
 
-                if (isCurrent) {
-                    overlay = `<div class="enzyme-block" style="left:${data.offset * 14}px">FokI Binding</div>`;
-                    if (data.offset === 2) {
-                        // Hide first 2 bases visually if we are starting at offset 2
-                        // We can do this by injecting a covering div or modifying the loop above.
-                        // But for simplicity in this string builder, let's keep them visible but dimmed unless strictly asked.
-                        // Actually, let's dim them to show "active frame".
-                    }
+                if (isCurrent && data.stepType !== 'binding' && data.stepType !== 'complete') {
+                    overlay = `<div class="enzyme-block" style="left:${data.offset * 14}px">Sticky End</div>`;
                 }
 
                 html += `
                 <div class="dna-symbol ${opacityClass}" style="${containerStyle}">
-                    ${isCurrent ? overlay : ''}
+                    ${overlay}
                     <div style="font-size:10px; text-align:center; color:#64748b; margin-bottom:2px">${sym.char}</div>
                     <div class="dna-strand strand-top">${topHtml}</div>
                     <div class="dna-strand strand-bottom">${botHtml}</div>
@@ -643,7 +792,71 @@
             });
 
             html += '</div>';
-            canvas.innerHTML = html;
+
+            // Add phase indicator
+            let phaseHtml = '';
+            if (data.stepType === 'binding') {
+                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge phase-binding">📎 Binding Phase</span> Transition molecule ${data.transitionMolecule.id} attached</div>`;
+            } else if (data.stepType === 'afterCut') {
+                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge phase-aftercut">✂️ After Cut</span> Symbol digested, new sticky end exposed</div>`;
+            } else if (data.stepType === 'complete') {
+                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge" style="background:#86efac;color:#166534;">✅ Complete</span> Automaton halted</div>`;
+            }
+
+            canvas.innerHTML = html + phaseHtml;
+        }
+
+        function renderTransitionMolecule(molecule, symbols, symbolIndex, offset) {
+            const top = molecule.top;
+            const bottom = molecule.bottom;
+            const fokiLen = FOKI_SITE.length; // 5
+            const spacerLen = molecule.spacerLen;
+            const bindingLen = 4; // Always 4 bases
+
+            let topHtml = '';
+            let botHtml = '';
+
+            // Render top strand: [FokI: 5 bases] [Spacer: 1/3/5 bases]
+            for (let i = 0; i < top.length; i++) {
+                let cssClass = '';
+                if (i < fokiLen) {
+                    cssClass = 'foki-recognition';
+                } else {
+                    cssClass = 'spacer-region';
+                }
+                topHtml += `<span class="${cssClass}" style="display:inline-block; width:12px; text-align:center;">${top[i]}</span>`;
+            }
+
+            // Render bottom strand: [complement of FokI+spacer] [binding complement: 4 bases]
+            const complementLen = bottom.length - bindingLen;
+            for (let i = 0; i < bottom.length; i++) {
+                let cssClass = '';
+                if (i < fokiLen) {
+                    cssClass = 'foki-recognition';
+                } else if (i < complementLen) {
+                    cssClass = 'spacer-region';
+                } else {
+                    cssClass = 'binding-complement';
+                }
+                botHtml += `<span class="${cssClass}" style="display:inline-block; width:12px; text-align:center;">${bottom[i]}</span>`;
+            }
+
+            // Calculate cut position marker
+            // FokI cuts 9 bases after recognition site on 5' strand
+            // The transition molecule top strand has fokiLen + spacerLen bases
+            // So cut is at position: fokiLen + spacerLen + (9 - spacerLen) = fokiLen + 9 = 14... 
+            // Wait, let me reconsider. The 9 bases are counted from the END of GGATG
+            // So: GGATG (5) + spacer (varies) + then we count into the input DNA
+            // Cut position in the input DNA region is: 9 - spacerLen - (bases already in transition molecule after GGATG)
+            // For proper visualization, we show the cut on the DNA symbols, not the transition molecule
+
+            return `
+                <div class="transition-molecule">
+                    <div class="transition-label">${molecule.id}: ${molecule.top.length}bp</div>
+                    <div class="dna-strand strand-top" style="padding:2px;">${topHtml}</div>
+                    <div class="dna-strand strand-bottom" style="padding:2px;">${botHtml}</div>
+                </div>
+            `;
         }
 
         // Initialize on load
