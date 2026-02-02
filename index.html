@@ -255,9 +255,19 @@
         }
 
         .underline-offset-0 {
-            text-decoration: underline;
-            text-decoration-color: red;
-            text-decoration-thickness: 3px;
+            /* Simulating underline for first 4 chars */
+            position: relative;
+        }
+
+        .underline-offset-0::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            width: 66%;
+            /* approx 4 chars out of 6 */
+            height: 3px;
+            background: red;
         }
 
         .underline-offset-2 {
