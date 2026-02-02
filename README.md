@@ -1,2 +1,8 @@
 # shapiro_enzymatic_automaton
 A simulation of the Enzymatic Automaton by Shapiro et al.
+
+## Theoretical summary
+
+The core idea here is that we can represent the current state and the next input symbol using 4 bases out of the 6 bases of the actual representation of every symbol, which is exactly the length of the sticky end left by foki.
+
+We synthesize the input sequence on a double stranded dna molecule (aka the "software") and we engineer transition molecules (the "hardware") that help us digest the input according to the automata state transitions. These transition molecules essentially encode triples of information - q_current, in_symbol, q_next. The q_current, in_symbol part is a sticky end which is the complementary dna sequence of the 4-bases of our encoding of the state+input because it is designed to hybridize and ligate to the remaining chunk of the "software", the q_next part essentially contains a foki recoginition site to facilitate the ingestion process and some padding to account for how we transform the 6 bases of each letter to 4 bases using displacements associated with each state - this is the key part, it chops the next letter IN THE INPUT according to the next state's displacement. so if the next state is q1 it chops exactly at the beginning of the next symbol, leaving the first 4 bases as sticky end (followed by the last 2 bases of the symbol paired up), and if the next state is q0 then it chops off the first 2 bases entirely off the input and leaves the remaining 4 bases as a sticky end (followed by the next symbol in the input) and so on. 
