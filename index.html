@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Molecular Finite Automaton Simulator</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #475569;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --dna-back: #e2e8f0;
+            --accent-q0: #10b981; /* Green for q0 */
+            --accent-q1: #f59e0b; /* Amber for q1 */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--secondary);
+            font-weight: 300;
+        }
+
+        /* Layout Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            margin-top: 0;
+            border-bottom: 2px solid var(--dna-back);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Config Forms */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box; 
+        }
+
+        .transition-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .transition-arrow {
+            font-weight: bold;
+            color: var(--secondary);
+            margin: 0 10px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        button:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+        }
+
+        /* Visualization Area */
+        #viz-container {
+            grid-column: 1 / -1;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .status-bar {
+            background: #334155;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            font-family: monospace;
+        }
+
+        /* DNA Styling */
+        .dna-wrapper {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 40px;
+            padding-bottom: 40px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 18px;
+            position: relative;
+        }
+
+        .dna-symbol {
+            display: flex;
+            flex-direction: column;
+            margin-right: 2px;
+            position: relative;
+        }
+
+        .dna-strand {
+            padding: 4px 2px;
+            letter-spacing: 2px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .strand-top {
+            background-color: #e0f2fe;
+            border-bottom: 1px solid #94a3b8;
+            color: #0369a1;
+        }
+
+        .strand-bottom {
+            background-color: #f0f9ff;
+            border-top: 1px solid #94a3b8;
+            color: #0ea5e9;
+        }
+
+        /* Sticky End Highlighting */
+        .sticky-highlight {
+            background-color: #fef08a !important; /* Yellow highlight */
+            border: 2px solid #eab308;
+            z-index: 10;
+        }
+
+        .cut-off {
+            opacity: 0.3;
+            filter: grayscale(100%);
+        }
+
+        .enzyme-block {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: rgba(255, 99, 71, 0.2);
+            border: 2px dashed tomato;
+            padding: 5px;
+            border-radius: 4px;
+            pointer-events: none;
+            white-space: nowrap;
+            font-size: 12px;
+            color: tomato;
+        }
+
+        /* Reference Table Styling */
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .ref-table th, .ref-table td {
+            border: 1px solid #e2e8f0;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .ref-table th {
+            background: #f8fafc;
+        }
+
+        .dna-code {
+            font-family: monospace;
+            color: #334155;
+            letter-spacing: 1px;
+        }
+
+        .underline-offset-0 {
+            text-decoration: underline;
+            text-decoration-color: red;
+            text-decoration-thickness: 3px;
+        }
+        
+        .underline-offset-2 {
+            /* Simulating underline for last 4 chars */
+            position: relative;
+        }
+        .underline-offset-2::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 0;
+            width: 66%; /* approx 4 chars out of 6 */
+            height: 3px;
+            background: red;
+        }
+
+        .state-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.8em;
+        }
+        .bg-q0 { background-color: var(--accent-q0); }
+        .bg-q1 { background-color: var(--accent-q1); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Enzymatic Automaton Simulator</h1>
+
+    <div class="dashboard">
+        <!-- Configuration -->
+        <div class="card">
+            <h2>1. Configure Automaton</h2>
+            
+            <div class="form-group">
+                <label>Transition Rules:</label>
+                <div class="transition-row">
+                    <span class="state-badge bg-q0">q0</span> + 'a' <span class="transition-arrow">&rarr;</span>
+                    <select id="trans-q0-a"><option value="q0">q0</option><option value="q1">q1</option></select>
+                </div>
+                <div class="transition-row">
+                    <span class="state-badge bg-q0">q0</span> + 'b' <span class="transition-arrow">&rarr;</span>
+                    <select id="trans-q0-b"><option value="q0">q0</option><option value="q1">q1</option></select>
+                </div>
+                <div class="transition-row">
+                    <span class="state-badge bg-q1">q1</span> + 'a' <span class="transition-arrow">&rarr;</span>
+                    <select id="trans-q1-a"><option value="q0">q0</option><option value="q1">q1</option></select>
+                </div>
+                <div class="transition-row">
+                    <span class="state-badge bg-q1">q1</span> + 'b' <span class="transition-arrow">&rarr;</span>
+                    <select id="trans-q1-b"><option value="q0">q0</option><option value="q1">q1</option></select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Initial State:</label>
+                <select id="initial-state">
+                    <option value="q0">q0</option>
+                    <option value="q1">q1</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Input String (a, b):</label>
+                <input type="text" id="input-string" value="abb" placeholder="e.g. abaab">
+            </div>
+
+            <button onclick="initSimulation()">Load Simulation</button>
+        </div>
+
+        <!-- Reference -->
+        <div class="card">
+            <h2>2. Symbol-State Reference</h2>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">
+                <strong>Key Rule:</strong> Target State determines the cleavage offset for the <em>next</em> symbol.
+                <br>q0 &rarr; Offset 2 (read bases 3-6)
+                <br>q1 &rarr; Offset 0 (read bases 1-4)
+            </p>
+            <table class="ref-table">
+                <thead>
+                    <tr>
+                        <th>State / Offset</th>
+                        <th>'a'<br><small>CTGGCT</small></th>
+                        <th>'b'<br><small>CGCAGC</small></th>
+                        <th>'t'<br><small>TGTCGC</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>q0</strong> (&Delta;=2)<br><small>Reads last 4</small></td>
+                        <td><span class="dna-code underline-offset-2">CTGGCT</span></td>
+                        <td><span class="dna-code underline-offset-2">CGCAGC</span></td>
+                        <td><span class="dna-code underline-offset-2">TGTCGC</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>q1</strong> (&Delta;=0)<br><small>Reads first 4</small></td>
+                        <td><span class="dna-code underline-offset-0">CTGGCT</span></td>
+                        <td><span class="dna-code underline-offset-0">CGCAGC</span></td>
+                        <td><span class="dna-code underline-offset-0">TGTCGC</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="margin-top: 15px; font-size: 0.8rem; border: 1px solid #fbbf24; background: #fffbeb; padding: 10px; border-radius: 4px;">
+                <strong>Simulation Note:</strong> The "Sticky End" shown in yellow is the active part of the input molecule waiting to be bound by a transition molecule.
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualization -->
+    <div class="card" id="viz-container">
+        <h2>3. Molecular Visualization</h2>
+        
+        <div class="controls">
+            <button class="btn-secondary" id="btn-prev" onclick="step(-1)" disabled>&larr; Back</button>
+            <div style="display:flex; align-items:center; font-weight:bold; padding: 0 10px;">
+                Step: <span id="step-count" style="margin-left:5px">0</span>
+            </div>
+            <button class="btn-secondary" id="btn-next" onclick="step(1)" disabled>Next &rarr;</button>
+        </div>
+
+        <div class="status-bar">
+            <div>Current State: <span id="current-state-display" style="font-weight:bold; color: var(--accent-q0)">-</span></div>
+            <div>Reading Symbol: <span id="current-symbol-display" style="font-weight:bold">-</span></div>
+            <div>Action: <span id="action-display">-</span></div>
+        </div>
+
+        <div id="canvas-area" style="width: 100%; overflow-x: auto; min-height: 150px; display: flex; justify-content: center;">
+            <!-- DNA visualization will be injected here -->
+            <div style="color: #94a3b8; margin-top: 40px;">Click "Load Simulation" to begin</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants based on user image/textbook
+    const DNA_MAP = {
+        'a': { seq: 'CTGGCT', comp: 'GACCGA' },
+        'b': { seq: 'CGCAGC', comp: 'GCGTCG' },
+        't': { seq: 'TGTCGC', comp: 'ACAGCG' } // Terminator
+    };
+
+    // User Rule: Target State determines Offset of resulting cut
+    const STATE_OFFSETS = {
+        'q0': 2, // Reading bases 3-6 (indices 2-5)
+        'q1': 0  // Reading bases 1-4 (indices 0-3)
+    };
+
+    // Simulation State
+    let simulationSteps = [];
+    let currentStepIndex = 0;
+    let transitionTable = {};
+
+    function initSimulation() {
+        // 1. Gather Configuration
+        const startState = document.getElementById('initial-state').value;
+        const inputStr = document.getElementById('input-string').value.toLowerCase().replace(/[^ab]/g, '') + 't'; // Add terminator
+        
+        transitionTable = {
+            'q0': {
+                'a': document.getElementById('trans-q0-a').value,
+                'b': document.getElementById('trans-q0-b').value,
+                't': 'HALT' // Terminator halts
+            },
+            'q1': {
+                'a': document.getElementById('trans-q1-a').value,
+                'b': document.getElementById('trans-q1-b').value,
+                't': 'HALT'
+            }
+        };
+
+        // 2. Pre-calculate all simulation steps
+        simulationSteps = [];
+        let currentState = startState;
+        
+        // Initial Condition:
+        // The molecule starts pre-digested according to the Start State's offset rule.
+        // If Start=q0, we start at offset 2 of the first symbol.
+        let currentOffset = STATE_OFFSETS[currentState]; 
+
+        // Generate initial full DNA string data structure
+        let symbolsData = [];
+        for(let char of inputStr) {
+            symbolsData.push({
+                char: char,
+                seq: DNA_MAP[char].seq,
+                comp: DNA_MAP[char].comp,
+                status: 'pending', // pending, active, digested
+                cutOffset: null
+            });
+        }
+
+        // Record Step 0 (Initial State)
+        simulationSteps.push({
+            stepNum: 0,
+            state: currentState,
+            symbolIndex: 0,
+            offset: currentOffset,
+            symbols: JSON.parse(JSON.stringify(symbolsData)),
+            action: "Initial State. Molecule ready."
+        });
+
+        // Loop through input
+        for (let i = 0; i < inputStr.length; i++) {
+            const char = inputStr[i];
+            
+            // Check for termination
+            if (char === 't') {
+                // Final step visualization (Success)
+                let finalSyms = JSON.parse(JSON.stringify(simulationSteps[simulationSteps.length-1].symbols));
+                finalSyms[i].status = 'active'; // Terminator is active
+                simulationSteps.push({
+                    stepNum: simulationSteps.length,
+                    state: currentState,
+                    symbolIndex: i,
+                    offset: currentOffset,
+                    symbols: finalSyms,
+                    action: "Terminator reached. Computation complete."
+                });
+                break;
+            }
+
+            const nextState = transitionTable[currentState][char];
+            const nextOffset = STATE_OFFSETS[nextState];
+
+            // Create Next Step State
+            let nextSyms = JSON.parse(JSON.stringify(simulationSteps[simulationSteps.length-1].symbols));
+            
+            // Mark current symbol as processed/digested
+            nextSyms[i].status = 'digested';
+            
+            // Set up next symbol as active
+            if (i + 1 < inputStr.length) {
+                nextSyms[i+1].status = 'pending'; // Will be active in visualization logic
+            }
+
+            let actionText = `Transition: (${currentState}, ${char}) → ${nextState}. Enzyme cuts ${nextOffset === 0 ? 'before' : 'inside'} next symbol.`;
+
+            simulationSteps.push({
+                stepNum: simulationSteps.length,
+                state: nextState,
+                symbolIndex: i + 1,
+                offset: nextOffset,
+                symbols: nextSyms,
+                action: actionText
+            });
+
+            currentState = nextState;
+            currentOffset = nextOffset;
+        }
+
+        // 3. Reset View
+        currentStepIndex = 0;
+        renderStep();
+        updateControls();
+    }
+
+    function step(delta) {
+        currentStepIndex += delta;
+        if (currentStepIndex < 0) currentStepIndex = 0;
+        if (currentStepIndex >= simulationSteps.length) currentStepIndex = simulationSteps.length - 1;
+        renderStep();
+        updateControls();
+    }
+
+    function updateControls() {
+        document.getElementById('btn-prev').disabled = currentStepIndex === 0;
+        document.getElementById('btn-next').disabled = currentStepIndex === simulationSteps.length - 1;
+        document.getElementById('step-count').innerText = currentStepIndex;
+    }
+
+    function renderStep() {
+        const data = simulationSteps[currentStepIndex];
+        const canvas = document.getElementById('canvas-area');
+        
+        // Update Status Bar
+        const stateSpan = document.getElementById('current-state-display');
+        stateSpan.innerText = data.state;
+        stateSpan.className = data.state === 'q0' ? 'state-badge bg-q0' : 'state-badge bg-q1';
+        
+        const sym = data.symbolIndex < data.symbols.length ? data.symbols[data.symbolIndex].char : 'End';
+        document.getElementById('current-symbol-display').innerText = sym;
+        document.getElementById('action-display').innerText = data.action;
+
+        // Build DNA Visual
+        let html = '<div class="dna-wrapper">';
+
+        data.symbols.forEach((sym, idx) => {
+            const isCurrent = idx === data.symbolIndex;
+            const isDigested = idx < data.symbolIndex;
+            
+            let opacityClass = isDigested ? 'cut-off' : '';
+            
+            // Determine highlighting based on state offset
+            // The logic:
+            // If this is the Current symbol, we highlight the "Sticky End" defined by current offset.
+            // Offset 0 (q1): Bases 0-3 (First 4) are sticky.
+            // Offset 2 (q0): Bases 2-5 (Last 4) are sticky.
+            
+            let topStrand = sym.seq;
+            let botStrand = sym.comp;
+            
+            let topHtml = '';
+            let botHtml = '';
+
+            // Render base by base to control styling
+            for(let b=0; b<6; b++) {
+                let isSticky = false;
+                
+                if (isCurrent) {
+                    // Logic for sticky end highlighting
+                    if (data.offset === 0) {
+                        // Sticky end is first 4 bases (0,1,2,3)
+                        if (b < 4) isSticky = true;
+                    } else if (data.offset === 2) {
+                        // Sticky end is last 4 bases (2,3,4,5)
+                        if (b >= 2) isSticky = true;
+                    }
+                }
+
+                const style = isSticky ? 'background-color:#fef08a; border:1px solid #eab308; color:#000;' : '';
+                
+                // Top strand visual
+                topHtml += `<span style="display:inline-block; width:12px; text-align:center; ${style}">${sym.seq[b]}</span>`;
+                
+                // Bottom strand visual
+                // For a 5' overhang sticky end, the complementary strand is missing in the sticky region?
+                // Actually, in the diagrams, the sticky end is single stranded.
+                // Let's hide the bottom strand for the sticky part to make it realistic.
+                if (isSticky) {
+                    botHtml += `<span style="display:inline-block; width:12px; opacity:0.1">&nbsp;</span>`;
+                } else {
+                    botHtml += `<span style="display:inline-block; width:12px; text-align:center;">${sym.comp[b]}</span>`;
+                }
+            }
+
+            // Determine if parts of this symbol are physically gone due to offset
+            // If Offset=2, bases 0-1 are technically digested/gone in the previous step?
+            // Actually, if we start at Offset 2, bases 0-1 are effectively removed.
+            
+            // Let's refine the "Digested" visual. 
+            // If we are currently reading Offset 2, bases 0-1 should be invisible or very faint.
+            let containerStyle = "";
+            let overlay = "";
+
+            if (isCurrent) {
+                overlay = `<div class="enzyme-block" style="left:${data.offset*14}px">FokI Binding</div>`;
+                if (data.offset === 2) {
+                    // Hide first 2 bases visually if we are starting at offset 2
+                    // We can do this by injecting a covering div or modifying the loop above.
+                    // But for simplicity in this string builder, let's keep them visible but dimmed unless strictly asked.
+                    // Actually, let's dim them to show "active frame".
+                }
+            }
+
+            html += `
+                <div class="dna-symbol ${opacityClass}" style="${containerStyle}">
+                    ${isCurrent ? overlay : ''}
+                    <div style="font-size:10px; text-align:center; color:#64748b; margin-bottom:2px">${sym.char}</div>
+                    <div class="dna-strand strand-top">${topHtml}</div>
+                    <div class="dna-strand strand-bottom">${botHtml}</div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        canvas.innerHTML = html;
+    }
+
+    // Initialize on load
+    window.onload = function() {
+        // Init with default
+    };
+
+</script>
+
+</body>
+</html>
