@@ -135,8 +135,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            overflow-x: auto;
             position: relative;
+            width: 100%;
+        }
+
+        #canvas-area {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 10px;
         }
 
         .controls {
@@ -161,12 +167,13 @@
         .dna-wrapper {
             display: flex;
             align-items: flex-start;
-            margin-top: 40px;
-            padding-bottom: 40px;
+            margin-top: 20px;
+            padding: 20px;
             font-family: 'Courier New', monospace;
             font-weight: bold;
             font-size: 18px;
             position: relative;
+            min-width: max-content;
         }
 
         .dna-symbol {
@@ -363,7 +370,8 @@
             border-radius: 12px;
             font-size: 0.75em;
             font-weight: bold;
-            margin-left: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .phase-binding {
@@ -374,6 +382,15 @@
         .phase-aftercut {
             background-color: #fef08a;
             color: #854d0e;
+        }
+
+        .phase-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -496,7 +513,7 @@
             </div>
 
             <div id="canvas-area"
-                style="width: 100%; overflow-x: auto; min-height: 150px; display: flex; justify-content: center;">
+                style="width: 100%; overflow-x: auto; min-height: 150px; display: flex;flex-direction: column;">
                 <!-- DNA visualization will be injected here -->
                 <div style="color: #94a3b8; margin-top: 40px;">Click "Load Simulation" to begin</div>
             </div>
@@ -793,17 +810,17 @@
 
             html += '</div>';
 
-            // Add phase indicator
+            // Add phase indicator BEFORE the DNA visualization
             let phaseHtml = '';
             if (data.stepType === 'binding') {
-                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge phase-binding">📎 Binding Phase</span> Transition molecule ${data.transitionMolecule.id} attached</div>`;
+                phaseHtml = `<div class="phase-indicator"><span class="phase-badge phase-binding">📎 Binding Phase</span><span>Transition molecule ${data.transitionMolecule.id} attached</span></div>`;
             } else if (data.stepType === 'afterCut') {
-                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge phase-aftercut">✂️ After Cut</span> Symbol digested, new sticky end exposed</div>`;
+                phaseHtml = `<div class="phase-indicator"><span class="phase-badge phase-aftercut">✂️ After Cut</span><span>Symbol digested, new sticky end exposed</span></div>`;
             } else if (data.stepType === 'complete') {
-                phaseHtml = `<div style="margin-top:10px;"><span class="phase-badge" style="background:#86efac;color:#166534;">✅ Complete</span> Automaton halted</div>`;
+                phaseHtml = `<div class="phase-indicator"><span class="phase-badge" style="background:#86efac;color:#166534;">✅ Complete</span><span>Automaton halted</span></div>`;
             }
 
-            canvas.innerHTML = html + phaseHtml;
+            canvas.innerHTML = phaseHtml + html;
         }
 
         function renderTransitionMolecule(molecule, symbols, symbolIndex, offset) {
