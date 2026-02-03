@@ -56,4 +56,4 @@ Each transition molecule has 3 components (5' to 3' on top strand):
 - **Top strand (5')**: Cut 9 bases after last base of recognition site
 - **Bottom strand (3')**: Cut 13 bases after last base of recognition site
 - Creates a 4-base 5' overhang (the new sticky end)
- 
+  
