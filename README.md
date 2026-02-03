@@ -33,15 +33,15 @@ Each transition molecule has 3 components (5' to 3' on top strand):
 [FokI Recognition Site: GGATG] - [Spacer: 1/3/5 bases] - (then complementary sticky end on bottom strand overhang)
 ```
 
-### Spacer Length Rules (Table 5.6)
+### Spacer Length Rules
 | Spacer Length | State Transition |
 |---------------|------------------|
 | 1 | q1 → q0 |
 | 3 | State unchanged (q0→q0 or q1→q1) |
 | 5 | q0 → q1 |
 
-### All 8 Transition Molecules (Figure 5.22)
-| ID | Transition | Top (5'→3') | Bottom (5'→3') |
+### All 8 Transition Molecules
+| ID | Transition | Top (5'→3') | Bottom (3'→5') |
 |----|------------|-------------|----------------|
 | T1 | q0 -a→ q0 | GGATGTAC | CCTACATGCCGA |
 | T2 | q0 -a→ q1 | GGATGACGAC | CCTACTGCTGCCGA |
